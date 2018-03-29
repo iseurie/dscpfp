@@ -122,7 +122,7 @@ func main() {
 	if filepath.Ext(opath) != ext {
 		opath += ext
 	}
-	ostrm, err := os.OpenFile(opath, os.O_WRONLY|os.O_CREATE, 0755)
+	ostrm, err := os.OpenFile(opath, os.O_WRONLY|os.O_CREATE, 0555)
 	errck("output file", err)
 	_, err = io.Copy(ostrm, resp.Body)
 	errck("output file", err)
