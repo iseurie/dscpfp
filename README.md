@@ -14,3 +14,6 @@
 
   	User ID for which to fetch avatar.
 
+- `-uname :: <name>[#<discriminator]`
+		
+		When this is given, the client starts an interactive mode prompting the user to log in , allowing the bot to introspect on their contacts list (`Relationship`s), performing a search for a username containing the given string and a matching discriminator where provided.

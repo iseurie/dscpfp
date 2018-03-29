@@ -32,9 +32,30 @@ func errck(what string, cause error) {
 	}
 }
 
+func uid_search(s *dg.Session, tag string) (uid string, err error) {
+	spl := strings.SplitN(tag, "#", 2)
+	uname := spl[0]
+	discriminator := ""
+	if len(spl) > 1 {
+		discriminator = spl[1]
+	}
+	relationships, err := s.RelationshipsGet()
+	if err != nil {
+		return "", fmt.Errorf("Retrieve contacts: %s", err)
+	}
+
+	for _, r := range relationships {
+		d := discriminator == "" || discriminator == r.User.Discriminator
+		if d && strings.Contains(r.User.Username, uname) {
+			return r.User.ID, nil
+		}
+	}
+	return "", fmt.Errorf("No matching tag found")
+}
+
 func credentials_or_die() (uname string, pass string) {
 	reader := bufio.NewReader(os.Stdin)
-	fmt.Print("uname: ")
+	fmt.Print("email: ")
 	uname, err := reader.ReadString('\n')
 	errck("", err)
 	fmt.Print("pass: ")
@@ -42,6 +63,7 @@ func credentials_or_die() (uname string, pass string) {
 	errck("", err)
 	pass = strings.TrimSpace(string(rawpass))
 	uname = strings.TrimSpace(uname)
+	fmt.Println()
 	return
 }
 
@@ -49,15 +71,17 @@ var szp uint
 var uid string
 var opath string
 var token string
+var uname string
 
 func main() {
-	flag.UintVar(&szp, "dimen", 10, "Avatar asset will be retrieved for dimension 1 << this")
+	flag.UintVar(&szp, "dimen", 10, "Avatar asset will be retrieved for dimension 1 << this.")
 	flag.StringVar(&opath, "opath", "", "Output path. If set, profile image will be retrieved and output to this file. Extensions will be appended for the appropriate MIME type.")
-	flag.StringVar(&uid, "uid", "", "User ID for which to fetch avatar")
-	flag.StringVar(&token, "token", "", "Bot token for Discord API")
+	flag.StringVar(&uid, "uid", "", "User ID for which to fetch avatar.")
+	flag.StringVar(&uname, "uname", "", "Username and optional tag for which to fetch avatar.")
+	flag.StringVar(&token, "token", "", "Bot token for Discord API.")
 	flag.Parse()
-	if uid == "" {
-		fmt.Fprintf(os.Stderr, "Please provide -uid.\n")
+	if uid == "" && uname == "" {
+		fmt.Fprintf(os.Stderr, "Please provide -uid or -uname.\n")
 		os.Exit(1)
 	}
 	if token == "" {
@@ -69,8 +93,17 @@ func main() {
 	}
 	session, err := dg.New("Bot " + token)
 	errck("Session auth failure", err)
+	if uid == "" {
+		// uname must be set
+		u, p := credentials_or_die()
+		fmt.Println("Logging...")
+		searchSession, err := dg.New(u, p)
+		errck("Authenticate session for `uname` search", err)
+		uid, err = uid_search(searchSession, uname)
+		errck("", err)
+	}
 	u, err := session.User(uid)
-	errck("Retrieve session user", err)
+	errck("Retrieve target user", err)
 	aUri := u.AvatarURL(strconv.FormatUint((uint64)(0x01<<szp), 10))
 	if opath == "" {
 		fmt.Println(aUri)
